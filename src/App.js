@@ -1,8 +1,19 @@
-import { useEffect, useState } from "react";
+import {useEffect, useState} from "react";
 import "./App.css";
 import axios from "axios";
 
-const BACKEND_URL = "http://192.168.31.180:3000";
+const BACKEND_URL = "http://10.65.132.54:3000";
+
+/*
+* Plan:
+*   1. Define backend url
+*   2. Get items and show them +
+*   3. Toggle item done +
+*   4. Handle item add +
+*   5. Delete +
+*   6. Filter
+*
+* */
 
 function App() {
   const [itemToAdd, setItemToAdd] = useState("");
@@ -14,47 +25,55 @@ function App() {
   };
 
   const handleAddItem = () => {
-    axios
-      .post(`${BACKEND_URL}/todos`, {
-        label: itemToAdd,
-      })
-      .then((response) => {
-        const newItem = response.data;
-        setItems([newItem, ...items]);
-      });
+    axios.post(`${BACKEND_URL}/todos`, {
+        label:itemToAdd,
+        done: false
+    }).then((response) => {
+        setItems([ ...items, response.data])
+    })
     setItemToAdd("");
   };
 
+
   const toggleItemDone = ({ id, done }) => {
-    axios
-      .put(`${BACKEND_URL}/todos/${id}`, {
-        done: !done,
+      axios.put(`${BACKEND_URL}/todos/${id}`, {
+          done: !done
+      }).then((response) => {
+          setItems(items.map((item) => {
+              if (item.id === id) {
+                  return {
+                      ...item,
+                      done: !done
+                  }
+              }
+              return item
+          }))
+
       })
-      .then((response) => {
-        const newItem = response.data;
-        setItems(
-          items.map((item) => {
-            if (item.id === newItem.id) {
-              return newItem;
-            }
-            return item;
-          })
-        );
-      });
   };
+
+  // N => map => N
+    // N => filter => 0...N
   const handleItemDelete = (id) => {
-    axios.delete(`${BACKEND_URL}/todos/${id}`).then((response) => {
-      setItems(items.filter((item) => item.id !== response.data?.id));
-    });
+      axios.delete(`${BACKEND_URL}/todos/${id}`).then((response) => {
+          const deletedItem = response.data;
+          console.log('Было:',items)
+          const newItems = items.filter((item) => {
+              return deletedItem.id !== item.id
+          })
+          console.log('Осталось:',newItems)
+          setItems(newItems)
+      })
   };
 
   useEffect(() => {
-    axios
-      .get(`${BACKEND_URL}/todos/?filter=${searchValue}`)
-      .then((response) => {
-        setItems(response.data);
-      });
-  }, [searchValue]);
+      console.log(searchValue)
+      axios.get(`${BACKEND_URL}/todos/?filter=${searchValue}`).then((response) => {
+          setItems(response.data);
+      })
+  }, [searchValue])
+
+
 
   return (
     <div className="todo-app">

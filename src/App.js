@@ -1,115 +1,66 @@
-import { useState } from "react";
-import { v4 as uuidv4 } from "uuid";
+import { useEffect, useState } from "react";
 import "./App.css";
+import axios from "axios";
 
-// button-group
-const buttons = [
-  {
-    type: "all",
-    label: "All",
-  },
-  {
-    type: "active",
-    label: "Active",
-  },
-  {
-    type: "done",
-    label: "Done",
-  },
-];
+const BACKEND_URL = "http://192.168.31.180:3000";
 
-const toDoItems = [
-  {
-    key: uuidv4(),
-    label: "Have fun",
-  },
-  {
-    key: uuidv4(),
-    label: "Spread Empathy",
-  },
-  {
-    key: uuidv4(),
-    label: "Generate Value",
-  },
-];
-
-// helpful links:
-// useState crash => https://blog.logrocket.com/a-guide-to-usestate-in-react-ecb9952e406c/
 function App() {
   const [itemToAdd, setItemToAdd] = useState("");
-  //arrow declaration => expensive computation ex: API calls
-  const [items, setItems] = useState(() => toDoItems);
-
-  const [filterType, setFilterType] = useState("");
+  const [items, setItems] = useState([]);
+  const [searchValue, setSearchValue] = useState("");
 
   const handleChangeItem = (event) => {
     setItemToAdd(event.target.value);
   };
 
   const handleAddItem = () => {
-    // mutating !WRONG!
-    // const oldItems = items;
-    // oldItems.push({ label: itemToAdd, key: uuidv4() });
-    // setItems(oldItems);
-
-    // not mutating !CORRECT!
-    setItems((prevItems) => [
-      { label: itemToAdd, key: uuidv4() },
-      ...prevItems,
-    ]);
-
+    axios
+      .post(`${BACKEND_URL}/todos`, {
+        label: itemToAdd,
+      })
+      .then((response) => {
+        const newItem = response.data;
+        setItems([newItem, ...items]);
+      });
     setItemToAdd("");
   };
 
-  const handleItemDone = ({ key }) => {
-    //first way
-    // const itemIndex = items.findIndex((item) => item.key === key);
-    // const oldItem = items[itemIndex];
-    // const newItem = { ...oldItem, done: !oldItem.done };
-    // const leftSideOfAnArray = items.slice(0, itemIndex);
-    // const rightSideOfAnArray = items.slice(itemIndex + 1, items.length);
-    // setItems([...leftSideOfAnArray, newItem, ...rightSideOfAnArray]);
-
-    //  second way
-    // const changedItem = items.map((item) => {
-    //   if (item.key === key) {
-    //     return { ...item, done: item.done ? false : true };
-    //   } else return item;
-    // });
-
-    //second way updated
-    setItems((prevItems) =>
-      prevItems.map((item) => {
-        if (item.key === key) {
-          return { ...item, done: !item.done };
-        } else return item;
+  const toggleItemDone = ({ id, done }) => {
+    axios
+      .put(`${BACKEND_URL}/todos/${id}`, {
+        done: !done,
       })
-    );
+      .then((response) => {
+        const newItem = response.data;
+        setItems(
+          items.map((item) => {
+            if (item.id === newItem.id) {
+              return newItem;
+            }
+            return item;
+          })
+        );
+      });
+  };
+  const handleItemDelete = (id) => {
+    axios.delete(`${BACKEND_URL}/todos/${id}`).then((response) => {
+      setItems(items.filter((item) => item.id !== response.data?.id));
+    });
   };
 
-  const handleFilterItems = (type) => {
-    setFilterType(type);
-  };
-
-  const amountDone = items.filter((item) => item.done).length;
-
-  const amountLeft = items.length - amountDone;
-
-  const filteredItems =
-    !filterType || filterType === "all"
-      ? items
-      : filterType === "active"
-      ? items.filter((item) => !item.done)
-      : items.filter((item) => item.done);
+  useEffect(() => {
+    axios
+      .get(`${BACKEND_URL}/todos/?filter=${searchValue}`)
+      .then((response) => {
+        setItems(response.data);
+      });
+  }, [searchValue]);
 
   return (
     <div className="todo-app">
       {/* App-header */}
       <div className="app-header d-flex">
         <h1>Todo List</h1>
-        <h2>
-          {amountLeft} more to do, {amountDone} done
-        </h2>
       </div>
 
       <div className="top-panel d-flex">
@@ -118,33 +69,20 @@ function App() {
           type="text"
           className="form-control search-input"
           placeholder="type to search"
+          value={searchValue}
+          onChange={(event) => setSearchValue(event.target.value)}
         />
-        {/* Item-status-filter */}
-        <div className="btn-group">
-          {buttons.map((item) => (
-            <button
-              onClick={() => handleFilterItems(item.type)}
-              key={item.type}
-              type="button"
-              className={`btn btn-${
-                filterType !== item.type ? "outline-" : ""
-              }info`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* List-group */}
       <ul className="list-group todo-list">
-        {filteredItems.length > 0 &&
-          filteredItems.map((item) => (
-            <li key={item.key} className="list-group-item">
+        {items.length > 0 ? (
+          items.map((item) => (
+            <li key={item.id} className="list-group-item">
               <span className={`todo-list-item${item.done ? " done" : ""}`}>
                 <span
                   className="todo-list-item-label"
-                  onClick={() => handleItemDone(item)}
+                  onClick={() => toggleItemDone(item)}
                 >
                   {item.label}
                 </span>
@@ -159,12 +97,16 @@ function App() {
                 <button
                   type="button"
                   className="btn btn-outline-danger btn-sm float-right"
+                  onClick={() => handleItemDelete(item.id)}
                 >
                   <i className="fa fa-trash-o" />
                 </button>
               </span>
             </li>
-          ))}
+          ))
+        ) : (
+          <div>No todos🤤</div>
+        )}
       </ul>
 
       {/* Add form */}
